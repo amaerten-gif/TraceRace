@@ -1,0 +1,45 @@
+name: Import Trace Race baseline
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'baseline/chunks/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+      - name: Reconstruct and unpack baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f baseline/chunks/part-01.b64 ]; then
+            echo 'No baseline chunks found; nothing to import.'
+            exit 0
+          fi
+          cat baseline/chunks/part-*.b64 | tr -d '\n\r' | base64 --decode > /tmp/trace-race-hd-v0.2.zip
+          rm -rf /tmp/tracerace
+          mkdir -p /tmp/tracerace
+          unzip -q /tmp/trace-race-hd-v0.2.zip -d /tmp/tracerace
+          cp -a /tmp/tracerace/trace-race-hd-v0.2/. .
+          rm -rf baseline/chunks
+      - name: Commit imported working baseline
+        shell: bash
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo 'Nothing changed.'
+            exit 0
+          fi
+          git config user.name 'Trace Race Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Import confirmed working Trace Race HD v0.2 baseline'
+          git push origin develop
